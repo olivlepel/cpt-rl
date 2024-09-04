@@ -126,3 +126,14 @@ class MLP_tabular(nn.Module):
         self.n = n
     def forward(self, x):
         return F.softmax(self.fc(torch.tensor([[1. if elt==x else 0. for elt in range(self.n**2)]])))
+
+class MicroMicroMLP(nn.Module):
+    def __init__(self,alpha=3,markovian=True):
+        super(MicroMicroMLP, self).__init__()
+        self.fc1 = nn.Linear(2, 3,bias=False)  if not markovian else nn.Linear(1,3,bias=False)
+        self.alpha = alpha
+    def setAlpha(self,alpha):
+        self.alpha = alpha
+    def forward(self, x):
+        x = self.fc1(x)
+        return F.softmax(x)
