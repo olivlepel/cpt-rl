@@ -15,7 +15,7 @@ import copy
 from math import sin, pi
 import numpy as np
 class MLP_thin(nn.Module):
-    def __init__(self,dropout=False,alpha=4,markovian=True):
+    def __init__(self,dropout=False,alpha=7,markovian=True):
         super(MLP_thin, self).__init__()
         self.fc1 = nn.Linear(2, 20)  if markovian else nn.Linear(3,12)
         self.fc2 = nn.Linear(20, 4)

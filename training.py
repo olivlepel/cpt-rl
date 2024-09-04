@@ -14,11 +14,14 @@ from math import exp
 import copy
 from math import sin, pi
 import numpy as np
-
-def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy_reg=None,use_dict=False,num_episodes=100000, draw_phi=False,batch_size = 10, gamma=1,baseline = 0,log_interval=1, utility=None, draw_policy=False,random_start=False, p_exp = 0.3,display_threshold=None,changing_alpha=False,changing_entropy=False, entropy_max=3, entropy_min=0.5,markovian=True, env=None,gaussian=False, continuous=False, changing_s=False,s=0.1, return_best=True, w=None, reinforce=False):
+from utils import *
+from envs import *
+def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy_reg=None,use_dict=False,num_episodes=100000, draw_phi=False,batch_size = 10, gamma=1,baseline = 0,log_interval=1, utility=None, draw_policy=False,random_start=False, p_exp = 0.3,display_threshold=None,changing_alpha=False,changing_entropy=False, entropy_max=3, entropy_min=0.5,markovian=True, env=None,gaussian=False, continuous=False, changing_s=False,s=0.1, return_best=True, w=None, reinforce=False,max_steps=100,action_direct=False):
     Rsum =0
     Usum = 0
     Ssum = 0
+    sample = 0
+    Lsample = []
     L = []
     Lu = []
     Lx = []
@@ -26,8 +29,10 @@ def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy
     best_u = float("-inf")
     best_dict = None
     T = 0
+    no_utility = False
     if utility is None:
         utility = lambda x:x
+        no_utility = True
     if env is None:
         env = GridWorld(gaussian=gaussian) if not random_start else GridWorld(gaussian=gaussian,starting_cell=(choice(list(range(SIZE))),choice(list(range(SIZE-1)))))
     exploration = int(0.9*num_episodes)
@@ -47,16 +52,17 @@ def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy
             rewards = []
             observation, info = env.reset() if not random_start else env.reset(starting_cell=(choice(list(range(SIZE))),choice(list(range(SIZE-1)))))
             past = 0
-            for t in range(100):  # Run for a max of 100 timesteps
+            for t in range(max_steps):  # Run for a max of 100 timesteps
                 if (not continuous) and (entropy_reg is not None):
-                    action, log_prob, probs = select_action(observation,policy,return_probs=True) if markovian else select_action(observation,policy,past,return_probs=True)
+                    action, log_prob, probs = select_action(observation,policy,return_probs=True,action_direct=action_direct) if markovian else select_action(observation,policy,past,return_probs=True,action_direct=action_direct)
                     entropy_list.append(compute_entropy(probs))
                 if not continuous:
-                    action, log_prob = select_action(observation,policy) if markovian else select_action(observation,policy,past)
+                    action, log_prob = select_action(observation,policy,action_direct=action_direct) if markovian else select_action(observation,policy,past,action_direct=action_direct)
                 else:
                     action, log_prob, sigma = select_action_continuous(observation,policy,s=s) if markovian else select_action(observation,policy,past)
                     entropy_list.append(sigma)
                 observation, reward, terminated, truncated, info = env.step(action)
+                sample+=1
                 past += reward
                 rewards.append(reward)
                 log_probs.append(log_prob)
@@ -187,6 +193,7 @@ def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy
                     res-= (1-w_approx(parameters)(1-sum([(-elt)>negative_segments[i] for elt in trajectory_utilities])/batch_size))*(negative_segments[i+1]-negative_segments[i])
 
                 Lcpt.append(res)
+                Lsample.append(sample)
             if draw_policy :
                 clear_output(wait=True)
                 if w is not None:
@@ -218,26 +225,35 @@ def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy
                 plt.title("$\phi$")
                 plt.show()
             if draw_policy:
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 
-                # Plot data on the first subplot
-                ax1.plot(Lx,L)  # 'r-' means red solid line
-                ax1.set_title(f'Mean return, calculated per {log_interval*batch_size} episodes')
-                ax1.set_xlabel('Episode')
-                ax1.set_ylabel('Mean return')
+                if no_utility:
+                    plt.plot(Lx,Lu,label="Mean utility")  # 'b-' means blue solid line
+                    if w is not None:
+                        plt.plot(Lx,Lcpt, label="Mean CPT value")  # 'b-' means blue solid line      w_approx(parameters)
+                    plt.title(f'Mean utility, calculated per {log_interval*batch_size} episodes')
+                    plt.xlabel('Episode')
+                    plt.legend()
+                else:
+                    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 
-                # Plot data on the second subplot
-                ax2.plot(Lx,Lu,label="Mean utility")  # 'b-' means blue solid line
-                if w is not None:
-                    ax2.plot(Lx,Lcpt, label="Mean CPT value")  # 'b-' means blue solid line      w_approx(parameters)
-                ax2.set_title(f'Mean utility, calculated per {log_interval*batch_size} episodes')
-                ax2.set_xlabel('Episode')
-                ax2.legend()
+                    # Plot data on the first subplot
+                    ax1.plot(Lx,L)  # 'r-' means red solid line
+                    ax1.set_title(f'Mean return, calculated per {log_interval*batch_size} episodes')
+                    ax1.set_xlabel('Episode')
+                    ax1.set_ylabel('Mean return')
+
+                    # Plot data on the second subplot
+                    ax2.plot(Lx,Lu,label="Mean utility")  # 'b-' means blue solid line
+                    if w is not None:
+                        ax2.plot(Lx,Lcpt, label="Mean CPT value")  # 'b-' means blue solid line      w_approx(parameters)
+                    ax2.set_title(f'Mean utility, calculated per {log_interval*batch_size} episodes')
+                    ax2.set_xlabel('Episode')
+                    ax2.legend()
 
 
 
-                # Adjust layout to prevent overlap
-                plt.tight_layout()
+                    # Adjust layout to prevent overlap
+                    plt.tight_layout()
 
                 # Show the plots
                 plt.show()
@@ -249,8 +265,7 @@ def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy
     if return_best:
         policy.load_state_dict(best_dict)
         print("Loading best state")
-    return L,Lu,Lx,Lcpt
-
+    return L,Lu,Lx,Lcpt,Lsample
 
 def array_sum(a,b):
   return [x+y for x,y in zip(a,b)]

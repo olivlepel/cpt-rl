@@ -74,6 +74,21 @@ wp_three_segments = (LINEAR, [ 1.94671279,  0.        ,  0.69678392,  0.11132902
 wp_counterexample = (LINEAR, [5,0, 0.5555555555555555, 0.44444444444, 0.1])
 w_neutral = (0, (1, 0, 1, 0, 0.5))
 wp_new = (0, [0.5, 0, 5.5, -4.5, 0.9])
-
+risk_averse_w = wp_new
 def KT(z0=0,l=2.25,alpha=0.8):
     return (lambda x: (x-z0)**alpha if x>= z0 else -l*(z0-x)**alpha)
+
+def select_action(state,policy,past=None, return_probs=False,action_direct=False):
+    if action_direct:
+        probs = policy(state)
+    else:
+        probs = policy(torch.Tensor([state])) if past is None else policy(torch.Tensor([state+tuple([past])]))
+    m = torch.distributions.Categorical(probs)
+    action = m.sample()
+    if not return_probs:
+        return action.item(), m.log_prob(action)
+    else:
+        return action.item(), m.log_prob(action), probs
+
+def compute_entropy(probs):
+    return -torch.sum(probs * torch.log(probs + 1e-10))
