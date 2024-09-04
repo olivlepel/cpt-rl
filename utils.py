@@ -89,6 +89,18 @@ def select_action(state,policy,past=None, return_probs=False,action_direct=False
         return action.item(), m.log_prob(action)
     else:
         return action.item(), m.log_prob(action), probs
-
+def select_action_continuous(state,policy,past=None,s=0.1):
+    output= policy(torch.Tensor([state])) if past is None else policy(torch.Tensor([state+tuple([past])]))
+    mu, sigma = output[:, :1],output[:, 1:]
+    m = torch.distributions.Normal(mu[:, 0],s)#  *(1+5*F.sigmoid(sigma[:, 0])) torch.abs(sigma[:, 0])
+    action = m.sample()
+    return action.item(), m.log_prob(action),torch.log(sigma[:, 0])
 def compute_entropy(probs):
     return -torch.sum(probs * torch.log(probs + 1e-10))
+
+def distribution(policy_arg):
+    L_score = []
+    for j in range(10000):
+      score,L_action = trial(policy_arg,display=False)
+      L_score.append(score)
+    return L_score
