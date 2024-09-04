@@ -274,7 +274,8 @@ def array_sum(a,b):
 def rademacher(n):
   return [choice([-1,1]) for _ in range(n)]
 
-def estimate_cpt_value(env,policy,batch_size,gamma,utility,w):
+def estimate_cpt_value(env,policy,batch_size,gamma,utility,w,max_steps=100):
+    sample = 0
     if utility is None:
         utility = lambda x:x
     _, parameters = w
@@ -283,9 +284,10 @@ def estimate_cpt_value(env,policy,batch_size,gamma,utility,w):
         rewards = []
         observation, info = env.reset()
         past = 0
-        for t in range(10):
+        for t in range(max_steps):
             action =  policy(observation)
             observation, reward, terminated, truncated, info = env.step(action)
+            sample+=1
 
             rewards.append(reward)
 
@@ -310,59 +312,67 @@ def estimate_cpt_value(env,policy,batch_size,gamma,utility,w):
     #Integral on losses
     for i in range(len(negative_segments)-1):
         res-= (1-w_approx(parameters)(1-sum([(-elt)>negative_segments[i] for elt in trajectory_utilities])/batch_size))*(negative_segments[i+1]-negative_segments[i])
-    return res, sum(trajectory_utilities)/len(trajectory_utilities)
-
-def tabular_policy_aux(theta,state):
+    return res, sum(trajectory_utilities)/len(trajectory_utilities),sample
+def tabular_policy_aux(theta,state,size):
     x,y = state
-    state = x+3*y
+    state = size*x+y
     return choices([UP,DOWN,LEFT,RIGHT],weights=[exp(theta[state]),exp(theta[state+1]),exp(theta[state+2]),exp(theta[state+3])])[0]
-def tabular_policy(theta):
-    return (lambda x:tabular_policy_aux(theta,x))
+def tabular_policy(theta,size):
+    return (lambda x:tabular_policy_aux(theta,x,size))
+
 
 
 def clip(n,t):
     return max(min(n,t),-t)
 
 
-def train_spsa(policy_family,env, num_episodes=100000, batch_size = 10, gamma=1, utility=None, w=None,eta = 0.2,alpha=0.1):
-    Rsum =0
+def train_spsa(policy_family,env, num_episodes=100000, batch_size = 10, gamma=1, utility=None, w=None,eta = 0.2,alpha=0.1,max_steps=100,size=3,plot=True):
+    Rsum = 0
     Usum = 0
     Ssum = 0
     L = []
     Lu = []
     Lx = []
     Lcpt = []
-
+    sample = 0
+    Lsample = []
 
     if utility is None:
-        utility = lambda x:x
+        utility = lambda x: x
 
-    theta = [0 for i in range(36)]
+    theta = [0 for i in range(size ** 2)]
     for episode in range(num_episodes):
-        print(episode)
-        delta = rademacher(36)
-        theta_plus = [x + eta*y for x,y in zip(theta,delta)]
-        theta_minus = [x - eta*y for x,y in zip(theta,delta)]
+        delta = rademacher(size ** 2)
+        theta_plus = [x + eta * y for x, y in zip(theta, delta)]
+        theta_minus = [x - eta * y for x, y in zip(theta, delta)]
 
-        cpt_plus, mean_plus = estimate_cpt_value(env,policy_family(theta_plus),batch_size,gamma,utility,w)
-        cpt_minus, mean_minus = estimate_cpt_value(env,policy_family(theta_minus),batch_size,gamma,utility,w)
-        nabla = [(cpt_plus-cpt_minus)/(2*eta)*elt for elt in delta] #Dividing by delta and multiplying by delta is the same thing
-        nabla_clipped = [max(min(elt,2),-2) for elt in nabla]
-        theta = [x + alpha*y for x,y in zip(theta,nabla_clipped)]
+        cpt_plus, mean_plus, n_samples_plus = estimate_cpt_value(env, policy_family(theta_plus, size=size), batch_size,
+                                                                 gamma, utility, w, max_steps)
+        cpt_minus, mean_minus, n_samples_minus = estimate_cpt_value(env, policy_family(theta_minus, size=size),
+                                                                    batch_size, gamma, utility, w, max_steps)
 
-        theta = [clip(elt,5) for elt in theta]
+        sample += n_samples_plus
+        sample += n_samples_minus
 
+        nabla = [(cpt_plus - cpt_minus) / (2 * eta) * elt for elt in
+                 delta]  # Dividing by delta and multiplying by delta is the same thing
+        nabla_clipped = [max(min(elt, 2), -2) for elt in nabla]
+        theta = [x + alpha * y for x, y in zip(theta, nabla_clipped)]
 
-        cpt,mean = estimate_cpt_value(env,policy_family(theta),batch_size,gamma,utility,w)
+        theta = [clip(elt, 5) for elt in theta]
+
+        cpt, mean, _ = estimate_cpt_value(env, policy_family(theta, size), batch_size, gamma, utility, w)
         Lcpt.append(cpt)
         Lu.append(mean)
-        X = [2*batch_size*i for i in range(len(Lcpt))]
-        clear_output(wait=True)
-        plt.plot(X,Lu,label="Mean utility")
-        plt.plot(X,Lcpt, label="Mean CPT value")
+        Lsample.append(sample)
 
+        X = [2 * batch_size * i for i in range(len(Lcpt))]
+        if plot:
+            clear_output(wait=True)
+            print(episode)
+            plt.plot(X, Lu, label="Mean utility")
+            plt.plot(X, Lcpt, label="Mean CPT value")
+            plt.legend()
+            plt.show()
 
-        plt.legend()
-        plt.show()
-
-    return Lcpt
+    return X, Lsample, Lcpt, Lu

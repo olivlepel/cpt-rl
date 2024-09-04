@@ -116,3 +116,13 @@ def select_action_continuous(state,policy,past=None,s=0.1):
     m = torch.distributions.Normal(mu[:, 0],s)#  *(1+5*F.sigmoid(sigma[:, 0])) torch.abs(sigma[:, 0])
     action = m.sample()
     return action.item(), m.log_prob(action),torch.log(sigma[:, 0])
+
+class MLP_tabular(nn.Module):
+    def __init__(self,n = 3):
+        super(MLP_tabular, self).__init__()
+        self.fc = nn.Linear(n**2, 4,bias=False)
+        with torch.no_grad():
+            self.fc.weight.fill_(1.0)
+        self.n = n
+    def forward(self, x):
+        return F.softmax(self.fc(torch.tensor([[1. if elt==x else 0. for elt in range(self.n**2)]])))

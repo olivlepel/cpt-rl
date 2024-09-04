@@ -253,3 +253,39 @@ class Electric:
         self.consumption = 2*consumption((self.t+6)%24)
         state = self.t,self.charge
         return self.state(), reward, (self.t==24), False, None
+
+
+class DiagonalTown(GridWorld):
+    def __init__(self, size,random_start=False,format=True):
+        self.height = size
+        self.width = size
+        self.random_start = random_start
+        self.x,self.y = (0,0)
+        self.goals = [(size-1-i,i) for i in range(self.height)]
+        self.format = (lambda x,y:(x,y)) if format else (lambda x,y: self.height*x+y)
+
+    def reset(self,starting_cell=None):
+        self.x,self.y = (0,0)
+        return self.format(self.x,self.y), None
+
+    def display(self,x):
+        pass
+
+    def step(self,action):
+        x,y = self.x,self.y
+        if action ==UP:
+            y-=1
+        if action ==DOWN:
+            y+=1
+        if action == LEFT:
+            x-=1
+        if action == RIGHT:
+            x+=1
+
+        if self.accessible(x,y):
+            self.x,self.y = x,y
+            if x+y==self.height-1:
+                return self.format(self.x,self.y), choice([4*x/self.height,4*y/self.height]), True,False,None
+            return (self.format(self.x,self.y), -1/self.height, False, False, None)
+        else :
+            return self.format(self.x,self.y),-2/self.height,False,False,None #!!
