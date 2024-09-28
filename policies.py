@@ -14,6 +14,11 @@ from math import exp
 import copy
 from math import sin, pi
 import numpy as np
+
+"""This files contains neural networks of various shapes and sizes for use in the experiments"""
+
+
+
 class MLP_thin(nn.Module):
     def __init__(self,dropout=False,alpha=7,markovian=True):
         super(MLP_thin, self).__init__()

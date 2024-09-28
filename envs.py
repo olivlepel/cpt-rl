@@ -15,11 +15,11 @@ import copy
 from math import sin, pi
 import numpy as np
 
+#Constants used for Grid Worlds
 UP, DOWN, LEFT, RIGHT = 0,1,2,3
 SIZE = 4
 arrows = {UP:"↑",DOWN:"↓",LEFT:"←",RIGHT:"→"}
 class GridWorld:
-    # Initializer / Instance attributes
     def __init__(self, height =SIZE, width =SIZE, starting_cell = None, goals = None,gaussian=False):
         self.height = height
         self.width = width
@@ -256,6 +256,7 @@ class Electric:
 
 
 class DiagonalTown(GridWorld):
+    """The scalable environment used for the algorithm comparison example"""
     def __init__(self, size,random_start=False,format=True):
         self.height = size
         self.width = size

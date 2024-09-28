@@ -3,6 +3,7 @@ from training import *
 from policies import *
 from envs import *
 def trial(policy,display=True):
+    """Doing one test run of a policy on the Electricity environnement and returning the relevant data"""
     env = Electric()
     observation, info = env.reset()
     past = 0

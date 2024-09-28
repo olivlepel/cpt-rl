@@ -17,6 +17,26 @@ import numpy as np
 from utils import *
 from envs import *
 def train(policy, optimizer, adaptive_baseline=False,phi_baseline=False, entropy_reg=None,use_dict=False,num_episodes=100000, draw_phi=False,batch_size = 10, gamma=1,baseline = 0,log_interval=1, utility=None, draw_policy=False,random_start=False, p_exp = 0.3,display_threshold=None,changing_alpha=False,changing_entropy=False, entropy_max=3, entropy_min=0.5,markovian=True, env=None,gaussian=False, continuous=False, changing_s=False,s=0.1, return_best=True, w=None, reinforce=False,max_steps=100,action_direct=False):
+    """
+    Trains using the policy gradient algorithm for the CPT-PO problem
+    :param policy: A policy - nn object from pytorch
+    :param env: The environment to use for training
+    :param optimizer: A pytorch optimizer
+    :param entropy_reg: Whether to use entropy regularization
+    :param num_episodes: The number of optimization steps
+    :param batch_size: The batch size for training
+    :param gamma: The discounting factor
+    :param utility: The utility function used in the CPT problem
+    :param draw_policy: Draw a representation of the policy (for grid-world problems)
+    :param changing_entropy: Whether to use a decaying entropy scheme
+    :param entropy_max: The starting entropy coefficient
+    :param entropy_min: The ending entropy coefficient
+    :param markovian: Whether we use a markovian parametrization of the policy
+    :param continuous: Whether we are using continuous actions spaces or not
+    :param return_best: If True, we return the best iterate and not the last
+    :param w: The distribution weight function. w functions are piecewise affine functions given in the form (LINEAR, [a1,a2,...ai, b1,b2,....bi, c1,..ci-1]) for a picewise affine w functions with f(x) = ai*x+bi for ci-1 < x < ci.
+    :return: L the list of total returns,Lu the list of utilites,Lx the list of the number of optimization steps,Lcpt the list of CPT values ,Lsample the list of sample counts
+    """
     Rsum =0
     Usum = 0
     Ssum = 0
@@ -272,9 +292,13 @@ def array_sum(a,b):
 
 
 def rademacher(n):
-  return [choice([-1,1]) for _ in range(n)]
+    """The Rademacher distribution"""
+    return [choice([-1,1]) for _ in range(n)]
 
 def estimate_cpt_value(env,policy,batch_size,gamma,utility,w,max_steps=100):
+    """
+    Estimate the CPT value of a policy
+    """
     sample = 0
     if utility is None:
         utility = lambda x:x
@@ -327,6 +351,7 @@ def clip(n,t):
 
 
 def train_spsa(policy_family,env, num_episodes=100000, batch_size = 10, gamma=1, utility=None, w=None,eta = 0.2,alpha=0.1,max_steps=100,size=3,plot=True):
+    """Training using the CPT-SPSA-G algorithm"""
     Rsum = 0
     Usum = 0
     Ssum = 0
